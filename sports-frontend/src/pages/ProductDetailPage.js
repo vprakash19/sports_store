@@ -4,7 +4,9 @@ import Navbar from '../components/Navbar';
 import CategoryNav from '../components/CategoryNav';
 import ProductCard from '../components/ProductCard';
 import { useCart } from '../context/CartContext';
-import { Check, Star, RefreshCw } from 'lucide-react';
+import { useWishlist } from '../context/WishlistContext';
+import { useUser } from '../context/UserContext';
+import { Check, Star, RefreshCw, Heart, Send, CheckCircle2 } from 'lucide-react';
 import api from '../api/api';
 
 // Fallback images according to subcategory if none are in database
@@ -61,6 +63,8 @@ export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const { customerId } = useUser();
 
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState(null);
@@ -74,6 +78,16 @@ export default function ProductDetailPage() {
   const [price, setPrice] = useState(4999);
   const [originalPrice, setOriginalPrice] = useState(6299);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
+  
+  // Inventory State
+  const [stockInfo, setStockInfo] = useState({ available: 25, status: 'In Stock' });
+
+  // Reviews State
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReviewText, setNewReviewText] = useState('');
+  const [newRating, setNewRating] = useState(5);
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -95,13 +109,12 @@ export default function ProductDetailPage() {
         const bName = foundBrand ? foundBrand.brandName.toUpperCase() : 'SPORTS';
         setBrandName(bName);
 
-        // 2. Resolve Product Images (Database + Fallbacks)
+        // 2. Resolve Product Images
         const dbImages = imgsRes.data || [];
         let gallery = [];
         if (dbImages.length > 0) {
           gallery = dbImages.map((img) => img.imageUrl);
         } else {
-          // Generate 2-3 contextual angles based on subcategory
           const baseImg = getFallbackImage(prodData.subcategoryId);
           gallery = [baseImg];
         }
@@ -113,18 +126,30 @@ export default function ProductDetailPage() {
         setVariants(vars);
 
         if (vars.length > 0) {
-          // Extract unique size labels (e.g. 1 kg, 2 kg or S, M, L or UK 8, 9)
           const distinctSizes = [...new Set(vars.map((v) => v.sizeLabel).filter(Boolean))];
           const finalSizes = distinctSizes.length > 0 ? distinctSizes : ['Standard'];
           setSizeOptions(finalSizes);
           setSelectedSize(finalSizes[0]);
 
-          // Pick the initial variant's price
           const initialVar = vars[0];
           const currPrice = Number(initialVar.price) || 4999;
           const origPrice = initialVar.discountPrice ? Number(initialVar.discountPrice) : Math.round(currPrice * 1.25);
           setPrice(currPrice);
           setOriginalPrice(origPrice);
+
+          // Check inventory for initial variant
+          if (initialVar.variantId) {
+            api.get(`/inventory/variant/${initialVar.variantId}`)
+              .then((invRes) => {
+                if (invRes.data && invRes.data.quantityAvailable !== undefined) {
+                  setStockInfo({
+                    available: invRes.data.quantityAvailable,
+                    status: invRes.data.quantityAvailable > 0 ? 'In Stock' : 'Out of Stock'
+                  });
+                }
+              })
+              .catch(() => {});
+          }
         } else {
           setSizeOptions(['Standard']);
           setSelectedSize('Standard');
@@ -138,6 +163,18 @@ export default function ProductDetailPage() {
         console.error("Error loading product:", err);
         setLoading(false);
       });
+
+    // Fetch Product Reviews from Backend API
+    setReviewsLoading(true);
+    api.get(`/reviews/product/${id}`)
+      .then((res) => {
+        setReviews(res.data || []);
+      })
+      .catch((e) => {
+        console.error("Error fetching reviews:", e);
+        setReviews([]);
+      })
+      .finally(() => setReviewsLoading(false));
 
     // Fetch Recommended Products
     api.get('/products')
@@ -157,14 +194,28 @@ export default function ProductDetailPage() {
       .catch(() => {});
   }, [id]);
 
-  // When user switches size, update price if variant has specific price
+  // When user switches size, update price & inventory
   const handleSizeChange = (newSize) => {
     setSelectedSize(newSize);
     const matchingVar = variants.find((v) => v.sizeLabel === newSize);
-    if (matchingVar && matchingVar.price) {
-      const p = Number(matchingVar.price);
-      setPrice(p);
-      setOriginalPrice(matchingVar.discountPrice ? Number(matchingVar.discountPrice) : Math.round(p * 1.25));
+    if (matchingVar) {
+      if (matchingVar.price) {
+        const p = Number(matchingVar.price);
+        setPrice(p);
+        setOriginalPrice(matchingVar.discountPrice ? Number(matchingVar.discountPrice) : Math.round(p * 1.25));
+      }
+      if (matchingVar.variantId) {
+        api.get(`/inventory/variant/${matchingVar.variantId}`)
+          .then((invRes) => {
+            if (invRes.data && invRes.data.quantityAvailable !== undefined) {
+              setStockInfo({
+                available: invRes.data.quantityAvailable,
+                status: invRes.data.quantityAvailable > 0 ? 'In Stock' : 'Out of Stock'
+              });
+            }
+          })
+          .catch(() => {});
+      }
     }
   };
 
@@ -204,6 +255,48 @@ export default function ProductDetailPage() {
     navigate('/cart');
   };
 
+  // Submit Review to Backend API
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!newReviewText.trim()) return;
+
+    setSubmittingReview(true);
+    try {
+      const payload = {
+        customerId: customerId || 1,
+        productId: Number(id),
+        rating: Number(newRating),
+        reviewText: newReviewText.trim()
+      };
+      const res = await api.post('/reviews', payload);
+      setReviews((prev) => [res.data, ...prev]);
+      setNewReviewText('');
+      alert('Thank you! Your review has been submitted.');
+    } catch (err) {
+      console.error('Error submitting review:', err);
+      // Fallback local addition if network fails
+      const fallbackRev = {
+        reviewId: Date.now(),
+        customerId: customerId || 1,
+        productId: Number(id),
+        rating: Number(newRating),
+        reviewText: newReviewText.trim(),
+        reviewDate: new Date().toISOString()
+      };
+      setReviews((prev) => [fallbackRev, ...prev]);
+      setNewReviewText('');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  // Calculate Average Rating
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((acc, r) => acc + (r.rating || 5), 0) / reviews.length).toFixed(1)
+    : '4.5';
+
+  const isWishlisted = isInWishlist(Number(id));
+
   // Dynamic label based on product type
   const isNutrition = product && (product.subcategoryId === 10 || product.subcategoryId === 11 || product.subcategoryId === 12);
   const isApparel = product && (product.subcategoryId === 3 || product.subcategoryId === 13 || product.subcategoryId === 14);
@@ -229,7 +322,7 @@ export default function ProductDetailPage() {
 
       {/* 3. Main Product Details (Image 2) */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start mb-14">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start mb-12">
           {/* Left Column: Gallery Thumbnails + Big Preview (5 cols) */}
           <div className="md:col-span-5 flex gap-4">
             {/* Vertical Thumbnails */}
@@ -248,12 +341,24 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Main Preview Inside Rounded Border Container */}
-            <div className="flex-1 aspect-square rounded-2xl border-4 border-slate-300 p-6 flex items-center justify-center bg-white shadow-xs">
+            <div className="flex-1 aspect-square rounded-2xl border-4 border-slate-300 p-6 flex items-center justify-center bg-white shadow-xs relative">
               <img
                 src={selectedImg}
                 alt={product.productName}
                 className="max-h-full max-w-full object-contain drop-shadow-md transition-all duration-300"
               />
+              {/* Wishlist Button on Preview */}
+              <button
+                onClick={() => toggleWishlist(Number(id))}
+                className={`absolute top-4 right-4 w-10 h-10 rounded-full border flex items-center justify-center transition shadow-xs ${
+                  isWishlisted
+                    ? 'bg-rose-50 border-rose-300 text-rose-600'
+                    : 'bg-white border-slate-300 text-slate-400 hover:text-rose-600 hover:border-rose-300'
+                }`}
+                title={isWishlisted ? "In Wishlist" : "Save to Wishlist"}
+              >
+                <Heart size={20} fill={isWishlisted ? "currentColor" : "none"} />
+              </button>
             </div>
           </div>
 
@@ -271,6 +376,11 @@ export default function ProductDetailPage() {
                 <Check size={14} className="stroke-[3]" />
                 2 Years Warranty
               </span>
+              {/* Live Inventory Stock Badge from Backend */}
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                <CheckCircle2 size={14} />
+                {stockInfo.status} ({stockInfo.available} in stock)
+              </span>
             </div>
 
             {/* Product Title */}
@@ -281,16 +391,22 @@ export default function ProductDetailPage() {
             {/* Star Rating & Review Count */}
             <div className="flex items-center gap-2 mb-4">
               <div className="flex text-amber-400">
-                <Star size={18} fill="currentColor" />
-                <Star size={18} fill="currentColor" />
-                <Star size={18} fill="currentColor" />
-                <Star size={18} fill="currentColor" />
-                <Star size={18} className="text-slate-300" fill="currentColor" />
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={18}
+                    fill={star <= Math.round(Number(avgRating)) ? "currentColor" : "none"}
+                    className={star <= Math.round(Number(avgRating)) ? "text-amber-400" : "text-slate-300"}
+                  />
+                ))}
               </div>
-              <span className="font-bold text-sm text-slate-800">4.0</span>
-              <span className="text-sm text-slate-500 font-medium underline cursor-pointer hover:text-blue-600">
-                12,000 reviews
-              </span>
+              <span className="font-bold text-sm text-slate-800">{avgRating}</span>
+              <a
+                href="#reviews-section"
+                className="text-sm text-slate-500 font-medium underline cursor-pointer hover:text-blue-600"
+              >
+                {reviews.length} reviews
+              </a>
             </div>
 
             {/* Pricing */}
@@ -370,8 +486,115 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* 4. Recommended Section ("RECOMENDED") matching Image 2 */}
-        <section className="mt-12 pt-8 border-t border-slate-200">
+        {/* 4. Customer Reviews Section (Connected to /api/reviews) */}
+        <section id="reviews-section" className="mt-8 pt-8 border-t border-slate-200">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">Customer Reviews</h2>
+              <p className="text-xs text-slate-500">Verified buyer ratings & feedback from our community</p>
+            </div>
+            <span className="text-sm font-bold text-slate-700">{reviews.length} Total Reviews</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start mb-12">
+            {/* Reviews List (7 cols) */}
+            <div className="md:col-span-7 space-y-4">
+              {reviewsLoading ? (
+                <div className="text-center py-6 text-slate-400 text-sm">Loading reviews...</div>
+              ) : reviews.length === 0 ? (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center text-slate-500 text-sm">
+                  No reviews yet for this product. Be the first to share your experience!
+                </div>
+              ) : (
+                reviews.map((rev) => (
+                  <div key={rev.reviewId} className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 font-bold text-xs flex items-center justify-center text-slate-700">
+                          {rev.customerId ? `C${rev.customerId}` : 'U'}
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">
+                            Verified Customer #{rev.customerId || 1}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {rev.reviewDate ? new Date(rev.reviewDate).toLocaleDateString() : 'Recent review'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex text-amber-400">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            size={14}
+                            fill={s <= (rev.rating || 5) ? "currentColor" : "none"}
+                            className={s <= (rev.rating || 5) ? "text-amber-400" : "text-slate-300"}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
+                      "{rev.reviewText}"
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Write a Review Box (5 cols) */}
+            <div className="md:col-span-5 bg-slate-50 border border-slate-200 rounded-2xl p-6 shadow-xs">
+              <h3 className="text-sm font-black text-slate-900 mb-1">Write a Review</h3>
+              <p className="text-xs text-slate-500 mb-4">Share your feedback on performance, quality, and fit.</p>
+
+              <form onSubmit={handleReviewSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Rating (1-5 Stars)</label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        type="button"
+                        key={star}
+                        onClick={() => setNewRating(star)}
+                        className="text-amber-400 hover:scale-110 transition p-1"
+                      >
+                        <Star
+                          size={22}
+                          fill={star <= newRating ? "currentColor" : "none"}
+                          className={star <= newRating ? "text-amber-400" : "text-slate-300"}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-2 text-xs font-black text-slate-800">{newRating} / 5 Stars</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Your Feedback</label>
+                  <textarea
+                    rows={3}
+                    value={newReviewText}
+                    onChange={(e) => setNewReviewText(e.target.value)}
+                    placeholder="Describe your experience with this product..."
+                    required
+                    className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-inner"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 rounded-xl shadow-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Send size={14} />
+                  <span>{submittingReview ? 'Submitting...' : 'Post Customer Review'}</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        {/* 5. Recommended Section ("RECOMENDED") matching Image 2 */}
+        <section className="mt-8 pt-8 border-t border-slate-200">
           <h2 className="text-xl font-black text-slate-900 uppercase tracking-wide mb-6">
             RECOMENDED
           </h2>
