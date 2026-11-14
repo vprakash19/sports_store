@@ -1,0 +1,9 @@
+﻿node_modules/
+dist/
+build/
+target/
+.env
+
+sports-backend/sports-backend/src/main/resources/application.properties
+
+sports-backend/sports-backend/src/main/resources/application.properties
