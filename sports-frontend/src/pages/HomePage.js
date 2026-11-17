@@ -1,116 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import CategoryNav, { CATEGORIES_DATA } from '../components/CategoryNav';
 import ProductCard from '../components/ProductCard';
-import api from '../api/api';
+import { useProducts, CATEGORY_MAP } from '../context/ProductContext';
 import { Tag, ArrowLeft, RefreshCw } from 'lucide-react';
-
-// Maps Category IDs to their database Subcategory IDs
-const CATEGORY_MAP = {
-  1: [4, 5, 7],      // Sports Equipment
-  2: [6, 8, 9],      // Gym Equipment
-  3: [10, 11, 12],   // Fitness Nutrition
-  4: [3, 13, 14],    // Sportswear
-  5: [1, 2, 15],     // Sports Footwear
-  6: [16, 17, 18],   // Sports Accessories
-  7: [19, 20, 21],   // Yoga and Wellness
-  8: [22, 23, 24],   // Outdoor Sports
-  9: [25, 26, 27]    // Protective Gear
-};
-
-// Realistic product images based on subcategory / category
-const getProductImage = (subcategoryId, index) => {
-  const imagesBySub = {
-    // 1: Sports Equipment
-    4: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=400&q=80", // Cricket Bat
-    5: "https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=400&q=80", // Football
-    7: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=400&q=80", // Paddle / Racket
-    // 2: Gym Equipment
-    6: "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=400&q=80", // Dumbbells
-    8: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=400&q=80", // Bench / Barbell
-    9: "https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=400&q=80", // Resistance Bands
-    // 3: Fitness Nutrition
-    10: "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=400&q=80", // Whey Protein
-    11: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=400&q=80", // Creatine
-    12: "https://images.unsplash.com/photo-1606149059549-6042addafc5a?w=400&q=80", // Energy Bar
-    // 4: Sportswear
-    3: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400&q=80", // Jersey
-    13: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=400&q=80", // Shorts / Pants
-    14: "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=400&q=80", // Compression Tights
-    // 5: Sports Footwear
-    1: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80", // Running Shoes
-    2: "https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=400&q=80", // Football Boots
-    15: "https://images.unsplash.com/photo-1552346154-21d32810aba3?w=400&q=80", // Basketball Shoes
-    // 6: Sports Accessories
-    16: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=400&q=80", // Water Bottle
-    17: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80", // Gym Bag
-    18: "https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?w=400&q=80", // Sweatband
-    // 7: Yoga and Wellness
-    19: "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=400&q=80", // Yoga Mat
-    20: "https://images.unsplash.com/photo-1600881333168-2ef49b341f30?w=400&q=80", // Foam Roller
-    21: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&q=80", // Yoga Block
-    // 8: Outdoor Sports
-    22: "https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&q=80", // Trekking Bag
-    23: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=400&q=80", // Cycling Helmet
-    24: "https://images.unsplash.com/photo-1530549387789-4c1017266635?w=400&q=80", // Swim Goggles
-    // 9: Protective Gear
-    25: "https://images.unsplash.com/photo-1580927752452-89d86da3fa0a?w=400&q=80", // Knee Guards
-    26: "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80", // Helmet
-    27: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&q=80"  // Shin Guards
-  };
-
-  return imagesBySub[subcategoryId] || "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=400&q=80";
-};
 
 export default function HomePage() {
   const { categoryId } = useParams();
   const currentCatId = categoryId ? parseInt(categoryId, 10) : null;
-
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { products, loading } = useProducts();
   const [searchQuery, setSearchQuery] = useState('');
 
   const activeCategoryObj = CATEGORIES_DATA.find((c) => c.id === currentCatId);
 
-  useEffect(() => {
-    setLoading(true);
-    // Fetch live products and variants from Render backend
-    Promise.all([
-      api.get('/products'),
-      api.get('/variants').catch(() => ({ data: [] }))
-    ])
-      .then(([prodRes, varRes]) => {
-        const variantsList = varRes.data || [];
-
-        if (prodRes.data && prodRes.data.length > 0) {
-          const formatted = prodRes.data.map((p, idx) => {
-            // Find variant price if available
-            const matchingVariant = variantsList.find((v) => v.productId === p.productId);
-            const currentPrice = matchingVariant ? matchingVariant.price : (p.price || 4999);
-            const originalPrice = matchingVariant && matchingVariant.discountPrice 
-              ? matchingVariant.discountPrice 
-              : Math.round(currentPrice * 1.25);
-
-            return {
-              ...p,
-              price: currentPrice,
-              originalPrice: originalPrice,
-              discountPercent: 20,
-              image: getProductImage(p.subcategoryId, idx)
-            };
-          });
-          setProducts(formatted);
-        }
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching products:", err);
-        setLoading(false);
-      });
-  }, []);
-
-  // Filter products by category and search query
+  // Filter products by category and search query instantly from memory
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.productName.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -160,7 +64,7 @@ export default function HomePage() {
 
       {/* 4. Product Grid Section */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1">
-        {loading ? (
+        {loading && products.length === 0 ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3">
             <RefreshCw className="animate-spin text-blue-600" size={32} />
             <p className="text-slate-600 text-sm font-semibold">Loading live products from database...</p>

@@ -6,6 +6,7 @@ import ProductCard from '../components/ProductCard';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useUser } from '../context/UserContext';
+import { useProducts } from '../context/ProductContext';
 import { Check, Star, RefreshCw, Heart, Send, CheckCircle2 } from 'lucide-react';
 import api from '../api/api';
 
@@ -65,19 +66,22 @@ export default function ProductDetailPage() {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { customerId } = useUser();
+  const { products: allProducts } = useProducts();
 
-  const [loading, setLoading] = useState(true);
-  const [product, setProduct] = useState(null);
-  const [brandName, setBrandName] = useState('SPORTS');
-  const [selectedImg, setSelectedImg] = useState('');
-  const [galleryImages, setGalleryImages] = useState([]);
+  // Find preloaded product from instant cache
+  const preloaded = allProducts?.find((p) => Number(p.productId) === Number(id));
+
+  const [loading, setLoading] = useState(!preloaded);
+  const [product, setProduct] = useState(preloaded || null);
+  const [brandName, setBrandName] = useState(preloaded?.brandName || 'SPORTS');
+  const [selectedImg, setSelectedImg] = useState(preloaded?.image || '');
+  const [galleryImages, setGalleryImages] = useState(preloaded?.image ? [preloaded.image] : []);
   const [variants, setVariants] = useState([]);
   const [sizeOptions, setSizeOptions] = useState(['Standard']);
   const [selectedSize, setSelectedSize] = useState('Standard');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]);
-  const [price, setPrice] = useState(4999);
-  const [originalPrice, setOriginalPrice] = useState(6299);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [price, setPrice] = useState(preloaded?.price || 4999);
+  const [originalPrice, setOriginalPrice] = useState(preloaded?.originalPrice || 6299);
   
   // Inventory State
   const [stockInfo, setStockInfo] = useState({ available: 25, status: 'In Stock' });
@@ -89,10 +93,18 @@ export default function ProductDetailPage() {
   const [newRating, setNewRating] = useState(5);
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
+  // Recommended Products: Computed instantly from in-memory cached products (0ms, no network call!)
+  const recommendedProducts = (allProducts || [])
+    .filter((p) => Number(p.productId) !== Number(id))
+    .slice(0, 12);
 
-    // Fetch product, brand, variants, and product images concurrently
+  useEffect(() => {
+    // If not preloaded, show loader
+    if (!preloaded) {
+      setLoading(true);
+    }
+
+    // Fetch product details, brand, variants, and product images concurrently
     Promise.all([
       api.get(`/products/${id}`),
       api.get('/brands').catch(() => ({ data: [] })),
@@ -175,24 +187,7 @@ export default function ProductDetailPage() {
         setReviews([]);
       })
       .finally(() => setReviewsLoading(false));
-
-    // Fetch Recommended Products
-    api.get('/products')
-      .then((res) => {
-        if (res.data) {
-          const others = res.data.filter((p) => p.productId !== Number(id)).slice(0, 12);
-          const formatted = others.map((p, idx) => ({
-            ...p,
-            price: p.price || (idx % 2 === 0 ? 12999 : 23500),
-            originalPrice: p.originalPrice || (idx % 2 === 0 ? 15999 : 26500),
-            discountPercent: 20,
-            image: getFallbackImage(p.subcategoryId)
-          }));
-          setRecommendedProducts(formatted);
-        }
-      })
-      .catch(() => {});
-  }, [id]);
+  }, [id, preloaded]);
 
   // When user switches size, update price & inventory
   const handleSizeChange = (newSize) => {
