@@ -13,7 +13,7 @@ import api from '../api/api';
 const getFallbackImage = (subcategoryId) => {
   const map = {
     // Equipment
-    4: "https://images.unsplash.com/photo-1531415074868-036b1c5d53ec?w=600&q=80", // Cricket Bat
+    4: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=600&q=80", // Cricket Bat
     5: "https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=600&q=80", // Football
     7: "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=600&q=80", // Paddle
     // Gym
@@ -23,7 +23,7 @@ const getFallbackImage = (subcategoryId) => {
     // Nutrition
     10: "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=600&q=80", // Whey
     11: "https://images.unsplash.com/photo-1593095948071-474c5cc2989d?w=600&q=80", // Creatine
-    12: "https://images.unsplash.com/photo-1622484216835-15d2a93902f5?w=600&q=80", // Energy Bar
+    12: "https://images.unsplash.com/photo-1606149059549-6042addafc5a?w=600&q=80", // Energy Bar
     // Sportswear
     3: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&q=80", // Jersey
     13: "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=600&q=80", // Shorts

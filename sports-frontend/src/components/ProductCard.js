@@ -50,6 +50,10 @@ export default function ProductCard({ product }) {
           <img
             src={imageUrl}
             alt={title}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=400&auto=format&fit=crop&q=80";
+            }}
             className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
           />
