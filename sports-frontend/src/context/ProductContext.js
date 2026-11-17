@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from '../api/api';
+import initialProductsData from '../data/products.json';
+import initialVariantsData from '../data/variants.json';
 
 const ProductContext = createContext();
 
@@ -62,28 +64,48 @@ export const getProductImage = (subcategoryId) => {
   return imagesBySub[subcategoryId] || "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=400&q=80";
 };
 
-export function ProductProvider({ children }) {
-  // Read instant cache from localStorage on first render
-  const [products, setProducts] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed reading product cache:', e);
-    }
-    return [];
+// Formats product list with pricing and images
+const formatProductsList = (prodList, variantsList) => {
+  return prodList.map((p) => {
+    const matchingVariant = (variantsList || []).find((v) => v.productId === p.productId);
+    const currentPrice = matchingVariant ? matchingVariant.price : (p.price || 4999);
+    const originalPrice = matchingVariant && matchingVariant.discountPrice
+      ? matchingVariant.discountPrice
+      : Math.round(currentPrice * 1.25);
+
+    return {
+      ...p,
+      price: currentPrice,
+      originalPrice: originalPrice,
+      discountPercent: 20,
+      image: getProductImage(p.subcategoryId)
+    };
   });
+};
 
-  // Only show loading spinner on the very first visit when cache is completely empty
-  const [loading, setLoading] = useState(products.length === 0);
+// Instant Pre-bundle: Never starts empty, loads in 0.0s on reload
+const getInitialProducts = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+  return formatProductsList(initialProductsData || [], initialVariantsData || []);
+};
 
-  // Background fetch to sync with live database without blocking UI
-  const fetchProducts = useCallback(async (isInitial = false) => {
+export function ProductProvider({ children }) {
+  // Pre-bundled instant state: renders immediately on 0ms
+  const [products, setProducts] = useState(getInitialProducts);
+  const loading = false;
+
+  // Background fetch to sync with live Render database quietly
+  const fetchProducts = useCallback(async () => {
     try {
       const [prodRes, varRes] = await Promise.all([
         api.get('/products'),
@@ -94,22 +116,7 @@ export function ProductProvider({ children }) {
       const prodList = prodRes.data || [];
 
       if (prodList.length > 0) {
-        const formatted = prodList.map((p, idx) => {
-          const matchingVariant = variantsList.find((v) => v.productId === p.productId);
-          const currentPrice = matchingVariant ? matchingVariant.price : (p.price || 4999);
-          const originalPrice = matchingVariant && matchingVariant.discountPrice
-            ? matchingVariant.discountPrice
-            : Math.round(currentPrice * 1.25);
-
-          return {
-            ...p,
-            price: currentPrice,
-            originalPrice: originalPrice,
-            discountPercent: 20,
-            image: getProductImage(p.subcategoryId)
-          };
-        });
-
+        const formatted = formatProductsList(prodList, variantsList);
         setProducts(formatted);
         try {
           localStorage.setItem(CACHE_KEY, JSON.stringify(formatted));
@@ -118,25 +125,21 @@ export function ProductProvider({ children }) {
         }
       }
     } catch (err) {
-      console.error('Error syncing products with backend:', err);
-    } finally {
-      if (isInitial) {
-        setLoading(false);
-      }
+      console.warn('Background sync note (using offline catalog):', err.message);
     }
   }, []);
 
   useEffect(() => {
-    // If no cache, perform blocking initial fetch. If cached, fetch silently in background!
-    fetchProducts(products.length === 0);
-  }, [fetchProducts, products.length]);
+    // Silent background sync
+    fetchProducts();
+  }, [fetchProducts]);
 
   return (
     <ProductContext.Provider
       value={{
         products,
         loading,
-        refreshProducts: () => fetchProducts(false)
+        refreshProducts: fetchProducts
       }}
     >
       {children}
