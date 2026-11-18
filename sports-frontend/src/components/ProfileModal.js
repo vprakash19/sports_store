@@ -3,7 +3,7 @@ import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
 import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock } from 'lucide-react';
 
-export default function ProfileModal({ isOpen, onClose }) {
+export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
   const { customer, addresses, selectedAddress, setSelectedAddress, addAddress, orders } = useUser();
   const { wishlistCount } = useWishlist();
 
@@ -113,13 +113,19 @@ export default function ProfileModal({ isOpen, onClose }) {
               </div>
 
               <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center gap-3">
+                <div
+                  onClick={() => {
+                    if (onOpenWishlist) onOpenWishlist();
+                  }}
+                  className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-rose-400 hover:shadow-xs transition"
+                  title="Click to view Wishlist"
+                >
                   <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
                     <Heart size={20} />
                   </div>
                   <div>
                     <span className="text-xl font-black text-rose-900">{wishlistCount}</span>
-                    <p className="text-xs font-semibold text-rose-700">Wishlist Items</p>
+                    <p className="text-xs font-semibold text-rose-700">Wishlist Items →</p>
                   </div>
                 </div>
 

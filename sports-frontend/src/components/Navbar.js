@@ -4,10 +4,12 @@ import { Search, X, User, ShoppingCart, Heart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import ProfileModal from './ProfileModal';
+import WishlistModal from './WishlistModal';
 
 export default function Navbar({ onSearch }) {
   const [query, setQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const { totalCount } = useCart();
   const { wishlistCount } = useWishlist();
 
@@ -66,26 +68,26 @@ export default function Navbar({ onSearch }) {
             </div>
           </div>
 
-          {/* Right: User Profile Icon, Wishlist & Shopping Cart Trolley */}
+          {/* Right: Wishlist Heart, User Profile & Shopping Cart Trolley */}
           <div className="flex items-center gap-4 sm:gap-5">
-            {/* Wishlist Icon */}
+            {/* Wishlist Heart Icon -> Opens WishlistModal */}
             <button
-              onClick={() => setIsProfileOpen(true)}
-              className="text-slate-800 hover:text-rose-600 transition relative flex items-center"
+              onClick={() => setIsWishlistOpen(true)}
+              className="text-slate-800 hover:text-rose-600 transition relative flex items-center p-1"
               title="Saved Items / Wishlist"
             >
               <Heart size={24} className="stroke-[2.2]" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-rose-600 text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow">
+                <span className="absolute -top-1 -right-1.5 bg-rose-600 text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow">
                   {wishlistCount}
                 </span>
               )}
             </button>
 
-            {/* Profile Icon */}
+            {/* Profile User Icon -> Opens ProfileModal */}
             <button
               onClick={() => setIsProfileOpen(true)}
-              className="text-slate-900 hover:text-blue-600 transition"
+              className="text-slate-900 hover:text-blue-600 transition p-1"
               title="Account & Orders"
             >
               <User size={26} className="stroke-[2.2]" />
@@ -94,12 +96,12 @@ export default function Navbar({ onSearch }) {
             {/* Cart Icon */}
             <Link
               to="/cart"
-              className="text-slate-900 hover:text-blue-600 transition relative flex items-center"
+              className="text-slate-900 hover:text-blue-600 transition relative flex items-center p-1"
               title="Cart"
             >
               <ShoppingCart size={28} className="stroke-[2]" />
               {totalCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-red-600 text-white font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center shadow">
+                <span className="absolute -top-1 -right-1.5 bg-red-600 text-white font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center shadow">
                   {totalCount}
                 </span>
               )}
@@ -108,8 +110,18 @@ export default function Navbar({ onSearch }) {
         </div>
       </header>
 
+      {/* Wishlist Drawer / Modal */}
+      <WishlistModal isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} />
+
       {/* Profile & Orders Modal */}
-      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        onOpenWishlist={() => {
+          setIsProfileOpen(false);
+          setIsWishlistOpen(true);
+        }}
+      />
     </>
   );
 }
