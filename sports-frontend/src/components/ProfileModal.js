@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
-import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock } from 'lucide-react';
+import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock, LogOut } from 'lucide-react';
 
-export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
-  const { customer, addresses, selectedAddress, setSelectedAddress, addAddress, orders } = useUser();
+export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAuth }) {
+  const { customer, isAuthenticated, logout, addresses, selectedAddress, setSelectedAddress, addAddress, orders } = useUser();
   const { wishlistCount } = useWishlist();
 
   const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'addresses', 'orders'
@@ -30,6 +30,11 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
     setNewAddr({ addressLine: '', city: '', state: '', pincode: '', addressType: 'HOME' });
   };
 
+  const handleLogout = () => {
+    logout();
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
       <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-200">
@@ -37,13 +42,13 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
         <div className="bg-[#1e293b] text-white px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-lg">
-              {customer?.firstName ? customer.firstName.charAt(0) : 'U'}
+              {customer?.firstName ? customer.firstName.charAt(0).toUpperCase() : 'U'}
             </div>
             <div>
               <h2 className="font-bold text-base leading-tight">
-                {customer?.firstName} {customer?.lastName}
+                {customer?.firstName ? `${customer.firstName} ${customer.lastName || ''}` : 'Guest User'}
               </h2>
-              <p className="text-xs text-slate-300">{customer?.email}</p>
+              <p className="text-xs text-slate-300">{customer?.email || 'Not logged in'}</p>
             </div>
           </div>
           <button
@@ -96,49 +101,87 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
           {/* 1. Profile Tab */}
           {activeTab === 'profile' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Customer ID</span>
-                  <span className="text-sm font-black text-slate-800">#{customer?.customerId}</span>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Phone Number</span>
-                  <span className="text-sm font-black text-slate-800">{customer?.phone || '+91 98765 43210'}</span>
-                </div>
-              </div>
+              {isAuthenticated ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Customer ID</span>
+                      <span className="text-sm font-black text-slate-800">#{customer?.customerId}</span>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Phone Number</span>
+                      <span className="text-sm font-black text-slate-800">{customer?.phone || '+91 98765 43210'}</span>
+                    </div>
+                  </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Registered Email</span>
-                <span className="text-sm font-semibold text-slate-800">{customer?.email}</span>
-              </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Registered Email</span>
+                    <span className="text-sm font-semibold text-slate-800">{customer?.email}</span>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div
-                  onClick={() => {
-                    if (onOpenWishlist) onOpenWishlist();
-                  }}
-                  className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-rose-400 hover:shadow-xs transition"
-                  title="Click to view Wishlist"
-                >
-                  <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-                    <Heart size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xl font-black text-rose-900">{wishlistCount}</span>
-                    <p className="text-xs font-semibold text-rose-700">Wishlist Items →</p>
-                  </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4 pt-2">
+                    <div
+                      onClick={() => {
+                        if (onOpenWishlist) onOpenWishlist();
+                      }}
+                      className="bg-rose-50 border border-rose-200 p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-rose-400 hover:shadow-xs transition"
+                      title="Click to view Wishlist"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                        <Heart size={20} />
+                      </div>
+                      <div>
+                        <span className="text-xl font-black text-rose-900">{wishlistCount}</span>
+                        <p className="text-xs font-semibold text-rose-700">Wishlist Items →</p>
+                      </div>
+                    </div>
 
-                <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                    <Package size={20} />
+                    <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                        <Package size={20} />
+                      </div>
+                      <div>
+                        <span className="text-xl font-black text-blue-900">{orders.length}</span>
+                        <p className="text-xs font-semibold text-blue-700">Total Orders</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-xl font-black text-blue-900">{orders.length}</span>
-                    <p className="text-xs font-semibold text-blue-700">Total Orders</p>
+
+                  {/* Log Out Button */}
+                  <div className="pt-4 border-t border-slate-200 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs text-slate-500 font-medium">Logged in to Sports Store</p>
+                      <p className="text-[11px] text-slate-400">All your addresses & orders are synced</p>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs border border-red-200 transition"
+                    >
+                      <LogOut size={15} />
+                      <span>Log Out</span>
+                    </button>
                   </div>
+                </>
+              ) : (
+                <div className="text-center py-8 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                    <User size={24} />
+                  </div>
+                  <h3 className="font-bold text-slate-800 text-base">You are not signed in</h3>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    Sign in to your Sports Store account to see your saved addresses, past orders, and wishlisted gear.
+                  </p>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      if (onOpenAuth) onOpenAuth();
+                    }}
+                    className="mt-2 inline-flex items-center gap-2 bg-blue-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-blue-700 transition"
+                  >
+                    <span>Sign In or Register</span>
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -216,40 +259,46 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
 
               {/* Address List */}
               <div className="space-y-2">
-                {addresses.map((addr) => {
-                  const isSelected = selectedAddress?.addressId === addr.addressId;
-                  return (
-                    <div
-                      key={addr.addressId}
-                      onClick={() => setSelectedAddress(addr)}
-                      className={`p-3.5 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
-                        isSelected
-                          ? 'border-blue-600 bg-blue-50/40'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <MapPin size={18} className={isSelected ? 'text-blue-600 mt-0.5' : 'text-slate-400 mt-0.5'} />
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                              {addr.addressType || 'HOME'}
-                            </span>
-                            {isSelected && (
-                              <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
-                                Selected for Delivery
+                {addresses.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs">
+                    No addresses saved yet. Click "Add New" to save a delivery address.
+                  </div>
+                ) : (
+                  addresses.map((addr) => {
+                    const isSelected = selectedAddress?.addressId === addr.addressId;
+                    return (
+                      <div
+                        key={addr.addressId}
+                        onClick={() => setSelectedAddress(addr)}
+                        className={`p-3.5 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'border-blue-600 bg-blue-50/40'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <MapPin size={18} className={isSelected ? 'text-blue-600 mt-0.5' : 'text-slate-400 mt-0.5'} />
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                                {addr.addressType || 'HOME'}
                               </span>
-                            )}
+                              {isSelected && (
+                                <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+                                  Selected for Delivery
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-semibold text-slate-800 leading-snug">
+                              {addr.addressLine}, {addr.city}, {addr.state} - {addr.pincode}
+                            </p>
                           </div>
-                          <p className="text-xs font-semibold text-slate-800 leading-snug">
-                            {addr.addressLine}, {addr.city}, {addr.state} - {addr.pincode}
-                          </p>
                         </div>
+                        {isSelected && <CheckCircle size={18} className="text-blue-600 shrink-0" />}
                       </div>
-                      {isSelected && <CheckCircle size={18} className="text-blue-600 shrink-0" />}
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           )}
@@ -300,7 +349,18 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end">
+        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center">
+          {isAuthenticated ? (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs font-bold text-red-600 hover:text-red-700 hover:underline"
+            >
+              <LogOut size={14} />
+              <span>Log Out</span>
+            </button>
+          ) : (
+            <div />
+          )}
           <button
             onClick={onClose}
             className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition"

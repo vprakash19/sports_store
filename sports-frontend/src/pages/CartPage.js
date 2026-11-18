@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import AuthModal from '../components/AuthModal';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -18,13 +19,14 @@ import {
   CreditCard,
   Check,
   ShieldCheck,
-  X
+  X,
+  LogIn
 } from 'lucide-react';
 import api from '../api/api';
 
 export default function CartPage() {
   const { cart, updateQuantity, updateSize, removeFromCart, clearCart, totalAmount } = useCart();
-  const { customer, addresses, selectedAddress, setSelectedAddress, refreshOrders } = useUser();
+  const { customer, isAuthenticated, addresses, selectedAddress, setSelectedAddress, refreshOrders } = useUser();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   // Coupon State
@@ -37,7 +39,8 @@ export default function CartPage() {
   // Address Selector Modal State
   const [showAddressPicker, setShowAddressPicker] = useState(false);
 
-  // Checkout Modal State
+  // Auth & Checkout Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -411,6 +414,32 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* Guest Login Banner */}
+                {!isAuthenticated ? (
+                  <div className="mb-4 bg-white border border-amber-300 rounded-xl p-3 flex items-center justify-between shadow-2xs">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">Oops... You're not logged in!</p>
+                      <p className="text-[11px] text-slate-500">Log in now to unlock member rewards & save delivery addresses.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="ml-2 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shrink-0"
+                    >
+                      <LogIn size={13} />
+                      <span>Log In</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mb-4 bg-white border border-emerald-200 rounded-xl p-2.5 px-3 flex items-center justify-between text-xs text-emerald-800">
+                    <span className="font-semibold flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Logged in as <strong>{customer?.firstName} {customer?.lastName}</strong>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Active Member</span>
+                  </div>
+                )}
+
                 {/* Active Coupons Badges */}
                 <div className="space-y-2 mb-4">
                   {activeCoupons.map((c) => (
@@ -523,7 +552,13 @@ export default function CartPage() {
                 </div>
 
                 <button
-                  onClick={() => setIsCheckoutOpen(true)}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setIsAuthModalOpen(true);
+                    } else {
+                      setIsCheckoutOpen(true);
+                    }
+                  }}
                   className="w-full bg-[#d99b26] hover:bg-[#c4881d] text-slate-950 font-black text-sm py-3.5 rounded-xl shadow-sm transition active:scale-98 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <CreditCard size={18} />
@@ -668,6 +703,11 @@ export default function CartPage() {
           </div>
         </div>
       )}
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

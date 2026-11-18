@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, X, User, ShoppingCart, Heart } from 'lucide-react';
+import { Search, X, ShoppingCart, Heart, LogIn } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useUser } from '../context/UserContext';
 import ProfileModal from './ProfileModal';
 import WishlistModal from './WishlistModal';
+import AuthModal from './AuthModal';
 
 export default function Navbar({ onSearch }) {
   const [query, setQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState('login');
+
   const { totalCount } = useCart();
   const { wishlistCount } = useWishlist();
+  const { customer, isAuthenticated } = useUser();
 
   const handleSearchChange = (e) => {
     const val = e.target.value;
@@ -24,14 +30,23 @@ export default function Navbar({ onSearch }) {
     if (onSearch) onSearch('');
   };
 
+  const handleUserClick = () => {
+    if (isAuthenticated) {
+      setIsProfileOpen(true);
+    } else {
+      setAuthTab('login');
+      setIsAuthOpen(true);
+    }
+  };
+
   return (
     <>
       <header className="bg-[#d7dde4] border-b border-slate-300 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           {/* Left: Runner / Athlete Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group shrink-0">
             <div className="w-10 h-10 flex items-center justify-center">
-              {/* Custom SVG Athlete Runner Silhouette matching Image 1 */}
+              {/* Custom SVG Athlete Runner Silhouette */}
               <svg
                 viewBox="0 0 24 24"
                 className="w-9 h-9 fill-black transition group-hover:scale-105"
@@ -68,40 +83,59 @@ export default function Navbar({ onSearch }) {
             </div>
           </div>
 
-          {/* Right: Wishlist Heart, User Profile & Shopping Cart Trolley */}
-          <div className="flex items-center gap-4 sm:gap-5">
+          {/* Right: Wishlist Heart, User Auth/Profile & Shopping Cart */}
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             {/* Wishlist Heart Icon -> Opens WishlistModal */}
             <button
               onClick={() => setIsWishlistOpen(true)}
-              className="text-slate-800 hover:text-rose-600 transition relative flex items-center p-1"
+              className="text-slate-800 hover:text-rose-600 transition relative flex items-center p-1.5 rounded-full hover:bg-slate-200/60"
               title="Saved Items / Wishlist"
             >
               <Heart size={24} className="stroke-[2.2]" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 bg-rose-600 text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow">
+                <span className="absolute -top-1 -right-1 bg-rose-600 text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center shadow">
                   {wishlistCount}
                 </span>
               )}
             </button>
 
-            {/* Profile User Icon -> Opens ProfileModal */}
-            <button
-              onClick={() => setIsProfileOpen(true)}
-              className="text-slate-900 hover:text-blue-600 transition p-1"
-              title="Account & Orders"
-            >
-              <User size={26} className="stroke-[2.2]" />
-            </button>
+            {/* User Profile / Auth Button */}
+            {isAuthenticated ? (
+              <button
+                onClick={handleUserClick}
+                className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full hover:bg-slate-200/80 transition group border border-slate-300/80 bg-white/50"
+                title="Account & Orders"
+              >
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                    {customer?.firstName ? customer.firstName.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 absolute -bottom-0.5 -right-0.5 ring-2 ring-white"></span>
+                </div>
+                <span className="text-xs font-bold text-slate-800 hidden md:inline group-hover:text-blue-600">
+                  {customer?.firstName}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={handleUserClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+                title="Login or Register"
+              >
+                <LogIn size={15} />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            )}
 
             {/* Cart Icon */}
             <Link
               to="/cart"
-              className="text-slate-900 hover:text-blue-600 transition relative flex items-center p-1"
+              className="text-slate-900 hover:text-blue-600 transition relative flex items-center p-1.5 rounded-full hover:bg-slate-200/60"
               title="Cart"
             >
-              <ShoppingCart size={28} className="stroke-[2]" />
+              <ShoppingCart size={26} className="stroke-[2]" />
               {totalCount > 0 && (
-                <span className="absolute -top-1 -right-1.5 bg-red-600 text-white font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center shadow">
+                <span className="absolute -top-1 -right-1 bg-red-600 text-white font-bold text-xs w-5 h-5 rounded-full flex items-center justify-center shadow">
                   {totalCount}
                 </span>
               )}
@@ -121,6 +155,18 @@ export default function Navbar({ onSearch }) {
           setIsProfileOpen(false);
           setIsWishlistOpen(true);
         }}
+        onOpenAuth={() => {
+          setIsProfileOpen(false);
+          setAuthTab('login');
+          setIsAuthOpen(true);
+        }}
+      />
+
+      {/* Auth Modal (Login & Sign Up) */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        initialTab={authTab}
       />
     </>
   );
