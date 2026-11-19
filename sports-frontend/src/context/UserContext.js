@@ -111,42 +111,20 @@ export function UserProvider({ children }) {
         return { success: false, error: 'Please enter both email and password.' };
       }
 
-      // 1. Attempt POST /api/auth/login with accountType USER
+      // Query customer directly by email from backend database
+      let user = null;
       try {
-        const authRes = await api.post('/auth/login', {
-          email: cleanEmail,
-          password: cleanPassword,
-          accountType: 'USER'
-        });
-
-        if (authRes.data && authRes.data.success && authRes.data.customer) {
-          const user = authRes.data.customer;
-          localStorage.setItem('sports_store_auth_session_active', 'true');
-          localStorage.setItem('sports_store_auth_user_id', user.customerId);
-          localStorage.setItem('sports_store_auth_user', JSON.stringify(user));
-          setCustomerId(user.customerId);
-          setCustomer(user);
-          await loadCustomerData(user.customerId);
-          return { success: true, customer: user };
-        }
-      } catch (authErr) {
-        if (authErr.response?.status === 401) {
+        const res = await api.get(`/customers/email/${encodeURIComponent(cleanEmail)}`);
+        user = res.data;
+      } catch (err) {
+        if (err.response?.status === 404) {
           return {
             success: false,
-            error: authErr.response.data?.message || 'Incorrect password. Please verify and try again.'
+            error: 'No registered user found with this email. Please sign up first.'
           };
         }
-        if (authErr.response?.status === 404) {
-          return {
-            success: false,
-            error: authErr.response.data?.message || 'No registered user found with this email. Please sign up first.'
-          };
-        }
+        throw err;
       }
-
-      // 2. Direct backend fallback via /customers/email/{email}
-      const res = await api.get(`/customers/email/${encodeURIComponent(cleanEmail)}`);
-      const user = res.data;
 
       if (!user || !user.customerId) {
         return {
