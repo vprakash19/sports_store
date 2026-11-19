@@ -26,7 +26,7 @@ import api from '../api/api';
 export default function CartPage() {
   const navigate = useNavigate();
   const { cart, updateQuantity, updateSize, removeFromCart, clearCart, totalAmount } = useCart();
-  const { customer, isAuthenticated, addresses, selectedAddress, setSelectedAddress, refreshOrders } = useUser();
+  const { customer, isAuthenticated, addresses, selectedAddress, setSelectedAddress, addAddress, refreshOrders } = useUser();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   // Coupon State
@@ -36,14 +36,55 @@ export default function CartPage() {
   const [couponError, setCouponError] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
-  // Address Selector Modal State
+  // Address Selector & Add Address State
   const [showAddressPicker, setShowAddressPicker] = useState(false);
+  const [showAddAddressForm, setShowAddAddressForm] = useState(false);
+  const [newAddressInput, setNewAddressInput] = useState({
+    addressLine: '',
+    city: '',
+    state: '',
+    pincode: '',
+    addressType: 'HOME'
+  });
+  const [addressSaving, setAddressSaving] = useState(false);
+  const [addressError, setAddressError] = useState('');
 
   // Checkout Modal State
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(null);
+
+  // Handle saving new address
+  const handleSaveNewAddress = async (e) => {
+    e.preventDefault();
+    setAddressError('');
+    if (!newAddressInput.addressLine.trim() || !newAddressInput.city.trim() || !newAddressInput.pincode.trim()) {
+      setAddressError('Please fill in address line, city, and pincode.');
+      return;
+    }
+    setAddressSaving(true);
+    try {
+      const saved = await addAddress(newAddressInput);
+      if (saved) {
+        setSelectedAddress(saved);
+        setShowAddAddressForm(false);
+        setShowAddressPicker(false);
+        setNewAddressInput({
+          addressLine: '',
+          city: '',
+          state: '',
+          pincode: '',
+          addressType: 'HOME'
+        });
+      }
+    } catch (err) {
+      console.error('Error saving address:', err);
+      setAddressError('Failed to save address. Please try again.');
+    } finally {
+      setAddressSaving(false);
+    }
+  };
 
   // Load Active Coupons from Backend
   useEffect(() => {
@@ -126,7 +167,9 @@ export default function CartPage() {
   // Complete Checkout Flow (Orders, Order-Items, Payments)
   const handlePlaceOrder = async () => {
     if (!selectedAddress) {
-      alert('Please select a delivery address');
+      setIsCheckoutOpen(false);
+      setShowAddressPicker(true);
+      setShowAddAddressForm(true);
       return;
     }
 
@@ -277,28 +320,46 @@ export default function CartPage() {
                 </button>
               </div>
 
-              {/* Delivery Location Banner with Pin Icon matching Image 3 (Connected to /api/addresses) */}
+              {/* Delivery Location Banner */}
               <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 shrink-0">
                     <MapPin size={18} />
                   </div>
-                  <span className="text-xs sm:text-sm font-semibold text-slate-800">
-                    Delivery to{' '}
-                    <strong className="text-blue-900">
-                      {selectedAddress
-                        ? `${selectedAddress.addressLine}, ${selectedAddress.city}, ${selectedAddress.pincode}, ${selectedAddress.state}`
-                        : isAuthenticated
-                        ? 'Select or add your delivery address'
-                        : 'Sign in to select delivery address'}
-                    </strong>
-                  </span>
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Delivery Address
+                    </span>
+                    {selectedAddress ? (
+                      <span className="text-xs sm:text-sm font-bold text-slate-900 block leading-snug">
+                        {selectedAddress.addressLine}, {selectedAddress.city} - {selectedAddress.pincode}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-amber-700 block leading-snug">
+                        {isAuthenticated ? 'No delivery address saved yet.' : 'Sign in to add a delivery address.'}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
-                  onClick={() => setShowAddressPicker(true)}
-                  className="text-xs sm:text-sm font-bold text-blue-600 hover:underline shrink-0"
+                  type="button"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login');
+                    } else {
+                      setShowAddressPicker(true);
+                      if (!selectedAddress && addresses.length === 0) {
+                        setShowAddAddressForm(true);
+                      }
+                    }
+                  }}
+                  className={`text-xs font-bold px-3.5 py-1.5 rounded-lg transition shrink-0 ${
+                    selectedAddress
+                      ? 'text-blue-600 hover:text-blue-800 hover:underline'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                  }`}
                 >
-                  Change
+                  {selectedAddress ? 'Change' : '+ Add Address'}
                 </button>
               </div>
 
@@ -555,6 +616,9 @@ export default function CartPage() {
                   onClick={() => {
                     if (!isAuthenticated) {
                       navigate('/login');
+                    } else if (!selectedAddress) {
+                      setShowAddressPicker(true);
+                      setShowAddAddressForm(true);
                     } else {
                       setIsCheckoutOpen(true);
                     }
@@ -575,48 +639,186 @@ export default function CartPage() {
         )}
       </main>
 
-      {/* Address Picker Modal */}
+      {/* Address Picker & Adder Modal */}
       {showAddressPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-base text-slate-900">Select Delivery Address</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+              <h3 className="font-bold text-base text-slate-900">
+                {showAddAddressForm || addresses.length === 0 ? 'Add Delivery Address' : 'Select Delivery Address'}
+              </h3>
               <button
-                onClick={() => setShowAddressPicker(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+                type="button"
+                onClick={() => {
+                  setShowAddressPicker(false);
+                  setShowAddAddressForm(false);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="space-y-3 mb-6 max-h-60 overflow-y-auto">
-              {addresses.map((addr) => (
-                <div
-                  key={addr.addressId}
-                  onClick={() => {
-                    setSelectedAddress(addr);
-                    setShowAddressPicker(false);
-                  }}
-                  className={`p-3.5 rounded-xl border-2 transition cursor-pointer ${
-                    selectedAddress?.addressId === addr.addressId
-                      ? 'border-blue-600 bg-blue-50/50'
-                      : 'border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 inline-block mb-1">
-                    {addr.addressType || 'HOME'}
-                  </span>
-                  <p className="text-xs font-semibold text-slate-800">
-                    {addr.addressLine}, {addr.city}, {addr.state} - {addr.pincode}
-                  </p>
+
+            {/* Error banner */}
+            {addressError && (
+              <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-xl text-xs font-medium">
+                {addressError}
+              </div>
+            )}
+
+            {/* Form to Add New Address */}
+            {showAddAddressForm || addresses.length === 0 ? (
+              <form onSubmit={handleSaveNewAddress} className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  Please provide your delivery destination so we can ship your order.
+                </p>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                    Flat / House No., Building & Street *
+                  </label>
+                  <input
+                    type="text"
+                    value={newAddressInput.addressLine}
+                    onChange={(e) => setNewAddressInput({ ...newAddressInput, addressLine: e.target.value })}
+                    placeholder="e.g. Flat 402, Green Valley Apts, Sector 15"
+                    required
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                  />
                 </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowAddressPicker(false)}
-              className="w-full bg-slate-900 text-white font-bold text-xs py-2.5 rounded-xl"
-            >
-              Done
-            </button>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      value={newAddressInput.city}
+                      onChange={(e) => setNewAddressInput({ ...newAddressInput, city: e.target.value })}
+                      placeholder="e.g. Hyderabad"
+                      required
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={newAddressInput.state}
+                      onChange={(e) => setNewAddressInput({ ...newAddressInput, state: e.target.value })}
+                      placeholder="e.g. Telangana"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                      Pincode *
+                    </label>
+                    <input
+                      type="text"
+                      value={newAddressInput.pincode}
+                      onChange={(e) => setNewAddressInput({ ...newAddressInput, pincode: e.target.value })}
+                      placeholder="e.g. 500001"
+                      required
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide mb-1">
+                      Address Type
+                    </label>
+                    <select
+                      value={newAddressInput.addressType}
+                      onChange={(e) => setNewAddressInput({ ...newAddressInput, addressType: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+                    >
+                      <option value="HOME">HOME</option>
+                      <option value="WORK">WORK</option>
+                      <option value="OTHER">OTHER</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  {addresses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAddressForm(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+                    >
+                      Back to Saved
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={addressSaving}
+                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition shadow-xs disabled:opacity-50"
+                  >
+                    {addressSaving ? 'Saving...' : 'Save & Select Address'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* List of Saved Addresses */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Your Saved Addresses</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAddressForm(true)}
+                    className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    <span>+ Add New</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5 max-h-60 overflow-y-auto">
+                  {addresses.map((addr) => {
+                    const isSelected = selectedAddress?.addressId === addr.addressId;
+                    return (
+                      <div
+                        key={addr.addressId}
+                        onClick={() => {
+                          setSelectedAddress(addr);
+                          setShowAddressPicker(false);
+                        }}
+                        className={`p-3.5 rounded-xl border-2 transition cursor-pointer flex items-center justify-between ${
+                          isSelected ? 'border-blue-600 bg-blue-50/50' : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <MapPin size={16} className={isSelected ? 'text-blue-600 mt-0.5' : 'text-slate-400 mt-0.5'} />
+                          <div>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 inline-block mb-0.5">
+                              {addr.addressType || 'HOME'}
+                            </span>
+                            <p className="text-xs font-semibold text-slate-800 leading-snug">
+                              {addr.addressLine}, {addr.city}, {addr.state} - {addr.pincode}
+                            </p>
+                          </div>
+                        </div>
+                        {isSelected && <Check size={16} className="text-blue-600 stroke-[3] shrink-0" />}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddressPicker(false)}
+                  className="w-full bg-slate-900 text-white font-bold text-xs py-2.5 rounded-xl mt-2"
+                >
+                  Done
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -640,10 +842,39 @@ export default function CartPage() {
 
             {/* Delivery Summary */}
             <div className="bg-slate-50 rounded-xl p-3 mb-4 border border-slate-200 text-xs">
-              <span className="font-bold text-slate-500 uppercase block mb-1">Shipping To</span>
-              <p className="font-semibold text-slate-800">
-                {customer?.firstName} {customer?.lastName} • {selectedAddress?.addressLine}, {selectedAddress?.city} ({selectedAddress?.pincode})
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-slate-500 uppercase">Shipping To</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCheckoutOpen(false);
+                    setShowAddressPicker(true);
+                  }}
+                  className="text-blue-600 font-bold hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+              {selectedAddress ? (
+                <p className="font-semibold text-slate-800">
+                  {customer?.firstName} {customer?.lastName} • {selectedAddress.addressLine}, {selectedAddress.city} ({selectedAddress.pincode})
+                </p>
+              ) : (
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-amber-700 font-medium">No delivery address selected</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCheckoutOpen(false);
+                      setShowAddressPicker(true);
+                      setShowAddAddressForm(true);
+                    }}
+                    className="text-xs font-bold text-blue-600 underline"
+                  >
+                    + Add Address
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Select Payment Method */}
