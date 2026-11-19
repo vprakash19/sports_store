@@ -3,23 +3,39 @@ import api from '../api/api';
 
 const UserContext = createContext();
 
+// Immediately purge any stale legacy values (like old customer_id = 1) if not explicitly logged in
+try {
+  const hasActiveSession = localStorage.getItem('sports_store_auth_session_active');
+  if (!hasActiveSession) {
+    localStorage.removeItem('sports_store_customer_id');
+    localStorage.removeItem('sports_store_customer');
+    localStorage.removeItem('sports_store_auth_user_id');
+    localStorage.removeItem('sports_store_auth_user');
+  }
+} catch (e) {}
+
 export function UserProvider({ children }) {
-  // Session strictly initialized from localStorage - NO default fallback user!
+  // Session strictly initialized from active session storage - NO default or fallback user!
   const [customerId, setCustomerId] = useState(() => {
-    const savedId = localStorage.getItem('sports_store_customer_id');
-    return savedId ? Number(savedId) : null;
+    try {
+      const hasActiveSession = localStorage.getItem('sports_store_auth_session_active');
+      if (!hasActiveSession) return null;
+      const savedId = localStorage.getItem('sports_store_auth_user_id');
+      return savedId ? Number(savedId) : null;
+    } catch (e) {
+      return null;
+    }
   });
 
   const [customer, setCustomer] = useState(() => {
-    const savedCust = localStorage.getItem('sports_store_customer');
-    if (savedCust) {
-      try {
-        return JSON.parse(savedCust);
-      } catch (e) {
-        return null;
-      }
+    try {
+      const hasActiveSession = localStorage.getItem('sports_store_auth_session_active');
+      if (!hasActiveSession) return null;
+      const savedCust = localStorage.getItem('sports_store_auth_user');
+      return savedCust ? JSON.parse(savedCust) : null;
+    } catch (e) {
+      return null;
     }
-    return null;
   });
 
   const [addresses, setAddresses] = useState([]);
@@ -43,7 +59,7 @@ export function UserProvider({ children }) {
       const custRes = await api.get(`/customers/${cId}`);
       if (custRes.data && custRes.data.customerId) {
         setCustomer(custRes.data);
-        localStorage.setItem('sports_store_customer', JSON.stringify(custRes.data));
+        localStorage.setItem('sports_store_auth_user', JSON.stringify(custRes.data));
       }
 
       // 2. Fetch addresses
@@ -61,7 +77,7 @@ export function UserProvider({ children }) {
       setOrders(orderRes.data || []);
     } catch (err) {
       console.error('Error loading customer details:', err);
-      // If error occurs, do NOT assign any fallback or mock user!
+      // NEVER set any fallback or mock user!
     } finally {
       setLoading(false);
     }
@@ -69,10 +85,13 @@ export function UserProvider({ children }) {
 
   useEffect(() => {
     if (customerId) {
-      localStorage.setItem('sports_store_customer_id', customerId);
+      localStorage.setItem('sports_store_auth_session_active', 'true');
+      localStorage.setItem('sports_store_auth_user_id', customerId);
       loadCustomerData(customerId);
     } else {
-      // If customerId is null, ensure session is clean
+      localStorage.removeItem('sports_store_auth_session_active');
+      localStorage.removeItem('sports_store_auth_user_id');
+      localStorage.removeItem('sports_store_auth_user');
       localStorage.removeItem('sports_store_customer_id');
       localStorage.removeItem('sports_store_customer');
       setCustomer(null);
@@ -102,15 +121,15 @@ export function UserProvider({ children }) {
 
         if (authRes.data && authRes.data.success && authRes.data.customer) {
           const user = authRes.data.customer;
+          localStorage.setItem('sports_store_auth_session_active', 'true');
+          localStorage.setItem('sports_store_auth_user_id', user.customerId);
+          localStorage.setItem('sports_store_auth_user', JSON.stringify(user));
           setCustomerId(user.customerId);
           setCustomer(user);
-          localStorage.setItem('sports_store_customer_id', user.customerId);
-          localStorage.setItem('sports_store_customer', JSON.stringify(user));
           await loadCustomerData(user.customerId);
           return { success: true, customer: user };
         }
       } catch (authErr) {
-        // If /api/auth/login is not deployed yet on Render or returns error, check status
         if (authErr.response?.status === 401) {
           return {
             success: false,
@@ -150,10 +169,11 @@ export function UserProvider({ children }) {
         };
       }
 
+      localStorage.setItem('sports_store_auth_session_active', 'true');
+      localStorage.setItem('sports_store_auth_user_id', user.customerId);
+      localStorage.setItem('sports_store_auth_user', JSON.stringify(user));
       setCustomerId(user.customerId);
       setCustomer(user);
-      localStorage.setItem('sports_store_customer_id', user.customerId);
-      localStorage.setItem('sports_store_customer', JSON.stringify(user));
 
       await loadCustomerData(user.customerId);
       return { success: true, customer: user };
@@ -196,11 +216,11 @@ export function UserProvider({ children }) {
       const res = await api.post('/customers', payload);
       const newCustomer = res.data;
 
-      // Automatically log in the newly registered user
+      localStorage.setItem('sports_store_auth_session_active', 'true');
+      localStorage.setItem('sports_store_auth_user_id', newCustomer.customerId);
+      localStorage.setItem('sports_store_auth_user', JSON.stringify(newCustomer));
       setCustomerId(newCustomer.customerId);
       setCustomer(newCustomer);
-      localStorage.setItem('sports_store_customer_id', newCustomer.customerId);
-      localStorage.setItem('sports_store_customer', JSON.stringify(newCustomer));
 
       await loadCustomerData(newCustomer.customerId);
       return { success: true, customer: newCustomer };
@@ -215,10 +235,12 @@ export function UserProvider({ children }) {
 
   // LOGOUT FUNCTION - Completely clears session
   const logout = () => {
+    localStorage.removeItem('sports_store_auth_session_active');
+    localStorage.removeItem('sports_store_auth_user_id');
+    localStorage.removeItem('sports_store_auth_user');
     localStorage.removeItem('sports_store_customer_id');
     localStorage.removeItem('sports_store_customer');
-    sessionStorage.removeItem('sports_store_customer_id');
-    sessionStorage.removeItem('sports_store_customer');
+    sessionStorage.clear();
     setCustomerId(null);
     setCustomer(null);
     setAddresses([]);

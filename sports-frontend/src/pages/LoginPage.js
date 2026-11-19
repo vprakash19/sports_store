@@ -278,7 +278,7 @@ export default function LoginPage() {
             {/* Guest Storefront Link */}
             <div className="pt-4 text-center border-t border-slate-100">
               <Link
-                to="/"
+                to="/shop"
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition inline-flex items-center gap-1.5"
               >
                 <ShoppingBag size={14} />
