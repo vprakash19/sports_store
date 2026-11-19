@@ -4,9 +4,20 @@ import { UserProvider } from './context/UserContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { CartProvider } from './context/CartContext';
 import { ProductProvider } from './context/ProductContext';
+import { AdminAuthProvider } from './context/AdminAuthContext';
+
+// Customer Pages
 import HomePage from './pages/HomePage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
+
+// Admin Pages
+import AdminLogin from './admin/AdminLogin';
+import AdminLayout from './admin/AdminLayout';
+import AdminDashboard from './admin/AdminDashboard';
+import AdminUsers from './admin/AdminUsers';
+import AdminOrders from './admin/AdminOrders';
+import AdminProtectedRoute from './admin/AdminProtectedRoute';
 
 function App() {
   return (
@@ -14,24 +25,63 @@ function App() {
       <WishlistProvider>
         <ProductProvider>
           <CartProvider>
-            <BrowserRouter>
-              <Routes>
-                {/* Home / All Products */}
-                <Route path="/" element={<HomePage />} />
+            <AdminAuthProvider>
+              <BrowserRouter>
+                <Routes>
+                  {/* Customer Storefront Routes */}
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/category/:categoryId" element={<HomePage />} />
+                  <Route path="/product/:id" element={<ProductDetailPage />} />
+                  <Route path="/cart" element={<CartPage />} />
 
-                {/* Dedicated Category Page Route */}
-                <Route path="/category/:categoryId" element={<HomePage />} />
+                  {/* Admin Portal Routes */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminProtectedRoute>
+                        <AdminLayout activePageTitle="Dashboard">
+                          <AdminDashboard />
+                        </AdminLayout>
+                      </AdminProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/dashboard"
+                    element={
+                      <AdminProtectedRoute>
+                        <AdminLayout activePageTitle="Dashboard">
+                          <AdminDashboard />
+                        </AdminLayout>
+                      </AdminProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/users"
+                    element={
+                      <AdminProtectedRoute>
+                        <AdminLayout activePageTitle="Manage Users">
+                          <AdminUsers />
+                        </AdminLayout>
+                      </AdminProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/orders"
+                    element={
+                      <AdminProtectedRoute>
+                        <AdminLayout activePageTitle="Manage Orders">
+                          <AdminOrders />
+                        </AdminLayout>
+                      </AdminProtectedRoute>
+                    }
+                  />
 
-                {/* Product Detail Page */}
-                <Route path="/product/:id" element={<ProductDetailPage />} />
-
-                {/* Shopping Cart Page */}
-                <Route path="/cart" element={<CartPage />} />
-
-                {/* Fallback */}
-                <Route path="*" element={<HomePage />} />
-              </Routes>
-            </BrowserRouter>
+                  {/* Fallback */}
+                  <Route path="*" element={<HomePage />} />
+                </Routes>
+              </BrowserRouter>
+            </AdminAuthProvider>
           </CartProvider>
         </ProductProvider>
       </WishlistProvider>

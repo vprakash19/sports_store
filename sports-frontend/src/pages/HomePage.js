@@ -95,7 +95,21 @@ export default function HomePage() {
       </main>
 
       {/* 5. Bottom Gray Container matching Image 1 wireframe */}
-      <div className="bg-[#cbd5e1] h-64 sm:h-80 w-full mt-6"></div>
+      <div className="bg-[#cbd5e1] h-48 sm:h-64 w-full mt-6"></div>
+
+      {/* Footer with Store info and Admin link */}
+      <footer className="bg-[#1e293b] text-slate-400 py-6 px-4 sm:px-6 border-t border-slate-700">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <p>© 2026 SPORTS STORE • Full-stack E-Commerce Application</p>
+          <div className="flex items-center gap-6">
+            <Link to="/" className="hover:text-white transition">Shop Home</Link>
+            <Link to="/cart" className="hover:text-white transition">Cart & Checkout</Link>
+            <Link to="/admin/login" className="text-amber-400 hover:text-amber-300 font-bold transition flex items-center gap-1">
+              <span>Admin Portal →</span>
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

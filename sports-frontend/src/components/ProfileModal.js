@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
-import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock, LogOut } from 'lucide-react';
+import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock, LogOut, ShieldCheck } from 'lucide-react';
 
 export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAuth }) {
   const { customer, isAuthenticated, logout, addresses, selectedAddress, setSelectedAddress, addAddress, orders } = useUser();
@@ -361,12 +362,22 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAu
           ) : (
             <div />
           )}
-          <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/admin/login"
+              onClick={onClose}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-blue-600 transition"
+            >
+              <ShieldCheck size={13} />
+              <span>Admin Portal</span>
+            </Link>
+            <button
+              onClick={onClose}
+              className="px-5 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
