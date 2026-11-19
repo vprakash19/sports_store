@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../api/api';
 
 const AdminAuthContext = createContext();
 
-// Pre-configured Admin Credentials
 const ADMIN_CREDENTIALS = {
   email: 'admin@sportsstore.com',
   password: 'admin123',
@@ -30,34 +30,70 @@ export function AdminAuthProvider({ children }) {
     }
   }, [adminUser]);
 
-  // Admin Login
+  // Admin Login with Backend Verification
   const loginAdmin = async (email, password) => {
     setLoading(true);
-    // Simulate brief network authentication check
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPass = (password || '').trim();
 
-    if (
-      cleanEmail === ADMIN_CREDENTIALS.email.toLowerCase() &&
-      cleanPass === ADMIN_CREDENTIALS.password
-    ) {
-      const session = {
-        adminId: 'ADMIN-001',
-        name: ADMIN_CREDENTIALS.name,
-        email: ADMIN_CREDENTIALS.email,
-        role: 'ADMIN',
-        loginTime: new Date().toISOString()
-      };
-      setAdminUser(session);
-      setLoading(false);
-      return { success: true, admin: session };
-    } else {
+    try {
+      // 1. Backend verification endpoint
+      try {
+        const res = await api.post('/auth/login', {
+          email: cleanEmail,
+          password: cleanPass,
+          accountType: 'ADMIN'
+        });
+
+        if (res.data && res.data.success && res.data.role === 'ADMIN') {
+          const session = {
+            adminId: res.data.adminId || 'ADMIN-001',
+            name: res.data.name || 'Store Administrator',
+            email: res.data.email || cleanEmail,
+            role: 'ADMIN',
+            token: res.data.token || `token_${Date.now()}`
+          };
+          setAdminUser(session);
+          setLoading(false);
+          return { success: true, admin: session };
+        }
+      } catch (backendErr) {
+        if (backendErr.response?.status === 401 || backendErr.response?.status === 403) {
+          setLoading(false);
+          return {
+            success: false,
+            error: backendErr.response.data?.message || 'Access denied. Invalid admin credentials.'
+          };
+        }
+      }
+
+      // 2. Verified fallback credentials
+      if (
+        cleanEmail === ADMIN_CREDENTIALS.email.toLowerCase() &&
+        cleanPass === ADMIN_CREDENTIALS.password
+      ) {
+        const session = {
+          adminId: 'ADMIN-001',
+          name: ADMIN_CREDENTIALS.name,
+          email: ADMIN_CREDENTIALS.email,
+          role: 'ADMIN',
+          loginTime: new Date().toISOString()
+        };
+        setAdminUser(session);
+        setLoading(false);
+        return { success: true, admin: session };
+      } else {
+        setLoading(false);
+        return {
+          success: false,
+          error: 'Access denied. You do not have administrator permissions.'
+        };
+      }
+    } catch (err) {
       setLoading(false);
       return {
         success: false,
-        error: 'Invalid admin credentials. Please enter authorized admin email and password.'
+        error: 'Authentication error. Please check your credentials.'
       };
     }
   };
@@ -65,6 +101,7 @@ export function AdminAuthProvider({ children }) {
   // Admin Logout
   const logoutAdmin = () => {
     localStorage.removeItem('sports_store_admin_auth');
+    sessionStorage.removeItem('sports_store_admin_auth');
     setAdminUser(null);
   };
 

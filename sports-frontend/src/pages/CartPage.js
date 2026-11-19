@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import AuthModal from '../components/AuthModal';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -25,6 +24,7 @@ import {
 import api from '../api/api';
 
 export default function CartPage() {
+  const navigate = useNavigate();
   const { cart, updateQuantity, updateSize, removeFromCart, clearCart, totalAmount } = useCart();
   const { customer, isAuthenticated, addresses, selectedAddress, setSelectedAddress, refreshOrders } = useUser();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -39,8 +39,7 @@ export default function CartPage() {
   // Address Selector Modal State
   const [showAddressPicker, setShowAddressPicker] = useState(false);
 
-  // Auth & Checkout Modal State
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  // Checkout Modal State
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -289,7 +288,9 @@ export default function CartPage() {
                     <strong className="text-blue-900">
                       {selectedAddress
                         ? `${selectedAddress.addressLine}, ${selectedAddress.city}, ${selectedAddress.pincode}, ${selectedAddress.state}`
-                        : 'Bangalore Central, Bangalore, 560001, Karnataka'}
+                        : isAuthenticated
+                        ? 'Select or add your delivery address'
+                        : 'Sign in to select delivery address'}
                     </strong>
                   </span>
                 </div>
@@ -421,14 +422,13 @@ export default function CartPage() {
                       <p className="text-xs font-bold text-slate-800">Oops... You're not logged in!</p>
                       <p className="text-[11px] text-slate-500">Log in now to unlock member rewards & save delivery addresses.</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsAuthModalOpen(true)}
+                    <Link
+                      to="/login"
                       className="ml-2 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg transition shrink-0"
                     >
                       <LogIn size={13} />
                       <span>Log In</span>
-                    </button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="mb-4 bg-white border border-emerald-200 rounded-xl p-2.5 px-3 flex items-center justify-between text-xs text-emerald-800">
@@ -554,7 +554,7 @@ export default function CartPage() {
                 <button
                   onClick={() => {
                     if (!isAuthenticated) {
-                      setIsAuthModalOpen(true);
+                      navigate('/login');
                     } else {
                       setIsCheckoutOpen(true);
                     }
@@ -703,11 +703,6 @@ export default function CartPage() {
           </div>
         </div>
       )}
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-      />
     </div>
   );
 }

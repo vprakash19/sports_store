@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { useWishlist } from '../context/WishlistContext';
 import { X, User, MapPin, Package, Heart, Plus, CheckCircle, Clock, LogOut, ShieldCheck } from 'lucide-react';
 
-export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAuth }) {
+export default function ProfileModal({ isOpen, onClose, onOpenWishlist }) {
+  const navigate = useNavigate();
   const { customer, isAuthenticated, logout, addresses, selectedAddress, setSelectedAddress, addAddress, orders } = useUser();
   const { wishlistCount } = useWishlist();
 
@@ -34,6 +35,7 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAu
   const handleLogout = () => {
     logout();
     onClose();
+    navigate('/login');
   };
 
   return (
@@ -172,15 +174,13 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAu
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     Sign in to your Sports Store account to see your saved addresses, past orders, and wishlisted gear.
                   </p>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      if (onOpenAuth) onOpenAuth();
-                    }}
+                  <Link
+                    to="/login"
+                    onClick={onClose}
                     className="mt-2 inline-flex items-center gap-2 bg-blue-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-blue-700 transition"
                   >
                     <span>Sign In or Register</span>
-                  </button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -364,7 +364,7 @@ export default function ProfileModal({ isOpen, onClose, onOpenWishlist, onOpenAu
           )}
           <div className="flex items-center gap-4">
             <Link
-              to="/admin/login"
+              to="/login?type=admin"
               onClick={onClose}
               className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-blue-600 transition"
             >

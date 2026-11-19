@@ -6,17 +6,21 @@ const WishlistContext = createContext();
 
 export function WishlistProvider({ children }) {
   const { customerId } = useUser();
-  const [wishlistId, setWishlistId] = useState(1);
+  const [wishlistId, setWishlistId] = useState(null);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Load customer wishlist & wishlist items
   const loadWishlist = useCallback(async () => {
-    if (!customerId) return;
+    if (!customerId) {
+      setWishlistItems([]);
+      setWishlistId(null);
+      return;
+    }
     setLoading(true);
     try {
       // 1. Get or create wishlist for customer
-      let wId = 1;
+      let wId = null;
       try {
         const wRes = await api.get(`/wishlists/customer/${customerId}`);
         if (wRes.data && wRes.data.wishlistId) {
@@ -26,16 +30,20 @@ export function WishlistProvider({ children }) {
         // Create wishlist if not found
         try {
           const createRes = await api.post('/wishlists', { customerId });
-          wId = createRes.data.wishlistId;
+          wId = createRes.data?.wishlistId;
         } catch (err) {
-          wId = 1;
+          wId = null;
         }
       }
       setWishlistId(wId);
 
       // 2. Fetch items in this wishlist
-      const itemsRes = await api.get(`/wishlist-items/wishlist/${wId}`);
-      setWishlistItems(itemsRes.data || []);
+      if (wId) {
+        const itemsRes = await api.get(`/wishlist-items/wishlist/${wId}`);
+        setWishlistItems(itemsRes.data || []);
+      } else {
+        setWishlistItems([]);
+      }
     } catch (err) {
       console.error('Error fetching wishlist:', err);
     } finally {

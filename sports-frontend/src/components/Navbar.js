@@ -6,14 +6,11 @@ import { useWishlist } from '../context/WishlistContext';
 import { useUser } from '../context/UserContext';
 import ProfileModal from './ProfileModal';
 import WishlistModal from './WishlistModal';
-import AuthModal from './AuthModal';
 
 export default function Navbar({ onSearch }) {
   const [query, setQuery] = useState('');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authTab, setAuthTab] = useState('login');
 
   const { totalCount } = useCart();
   const { wishlistCount } = useWishlist();
@@ -28,15 +25,6 @@ export default function Navbar({ onSearch }) {
   const handleClear = () => {
     setQuery('');
     if (onSearch) onSearch('');
-  };
-
-  const handleUserClick = () => {
-    if (isAuthenticated) {
-      setIsProfileOpen(true);
-    } else {
-      setAuthTab('login');
-      setIsAuthOpen(true);
-    }
   };
 
   return (
@@ -99,10 +87,10 @@ export default function Navbar({ onSearch }) {
               )}
             </button>
 
-            {/* User Profile / Auth Button */}
-            {isAuthenticated ? (
+            {/* User Profile or Common Login Button */}
+            {isAuthenticated && customer ? (
               <button
-                onClick={handleUserClick}
+                onClick={() => setIsProfileOpen(true)}
                 className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full hover:bg-slate-200/80 transition group border border-slate-300/80 bg-white/50"
                 title="Account & Orders"
               >
@@ -117,14 +105,14 @@ export default function Navbar({ onSearch }) {
                 </span>
               </button>
             ) : (
-              <button
-                onClick={handleUserClick}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
+              <Link
+                to="/login"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs"
                 title="Login or Register"
               >
-                <LogIn size={15} />
-                <span className="hidden sm:inline">Sign In</span>
-              </button>
+                <LogIn size={14} />
+                <span>Sign In</span>
+              </Link>
             )}
 
             {/* Cart Icon */}
@@ -155,18 +143,6 @@ export default function Navbar({ onSearch }) {
           setIsProfileOpen(false);
           setIsWishlistOpen(true);
         }}
-        onOpenAuth={() => {
-          setIsProfileOpen(false);
-          setAuthTab('login');
-          setIsAuthOpen(true);
-        }}
-      />
-
-      {/* Auth Modal (Login & Sign Up) */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        initialTab={authTab}
       />
     </>
   );

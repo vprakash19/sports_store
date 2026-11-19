@@ -6,7 +6,8 @@ export default function AdminProtectedRoute({ children }) {
   const { isAdminAuthenticated } = useAdminAuth();
 
   if (!isAdminAuthenticated) {
-    return <Navigate to="/admin/login" replace />;
+    // Redirect unauthenticated visitors or normal users to the common login with admin type selected
+    return <Navigate to="/login?type=admin" replace />;
   }
 
   return children;

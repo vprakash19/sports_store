@@ -104,7 +104,8 @@ export default function HomePage() {
           <div className="flex items-center gap-6">
             <Link to="/" className="hover:text-white transition">Shop Home</Link>
             <Link to="/cart" className="hover:text-white transition">Cart & Checkout</Link>
-            <Link to="/admin/login" className="text-amber-400 hover:text-amber-300 font-bold transition flex items-center gap-1">
+            <Link to="/login" className="hover:text-white transition">Sign In</Link>
+            <Link to="/login?type=admin" className="text-amber-400 hover:text-amber-300 font-bold transition flex items-center gap-1">
               <span>Admin Portal →</span>
             </Link>
           </div>

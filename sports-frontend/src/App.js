@@ -6,13 +6,13 @@ import { CartProvider } from './context/CartContext';
 import { ProductProvider } from './context/ProductContext';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 
-// Customer Pages
+// Customer & Common Pages
 import HomePage from './pages/HomePage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
+import LoginPage from './pages/LoginPage';
 
 // Admin Pages
-import AdminLogin from './admin/AdminLogin';
 import AdminLayout from './admin/AdminLayout';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminUsers from './admin/AdminUsers';
@@ -34,8 +34,9 @@ function App() {
                   <Route path="/product/:id" element={<ProductDetailPage />} />
                   <Route path="/cart" element={<CartPage />} />
 
-                  {/* Admin Portal Routes */}
-                  <Route path="/admin/login" element={<AdminLogin />} />
+                  {/* Common Authentication Route */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/admin/login" element={<LoginPage />} />
                   <Route
                     path="/admin"
                     element={
