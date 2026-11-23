@@ -89,6 +89,7 @@ export default function LoginPage() {
   // Submit User Login
   const handleUserLoginSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; // Prevent duplicate submission
     setError('');
     setSuccessMsg('');
 
@@ -98,22 +99,26 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const result = await userLogin(userEmail, userPassword);
-    setLoading(false);
-
-    if (result.success) {
-      setSuccessMsg(`Welcome, ${result.customer.firstName}! Redirecting to Storefront...`);
-      setTimeout(() => {
+    try {
+      const result = await userLogin(userEmail, userPassword);
+      if (result && result.success) {
+        setSuccessMsg(`Welcome, ${result.customer.firstName}! Redirecting to Storefront...`);
         navigate('/', { replace: true });
-      }, 700);
-    } else {
-      setError(result.error);
+      } else {
+        setError(result?.error || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      console.error('Login submit error:', err);
+      setError(err?.friendlyMessage || err?.message || 'An unexpected error occurred during login. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   // Submit User Registration
   const handleUserRegisterSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; // Prevent duplicate submission
     setError('');
     setSuccessMsg('');
 
@@ -135,28 +140,33 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const result = await userRegister({
-      firstName: regFirstName,
-      lastName: regLastName,
-      email: regEmail,
-      phone: regPhone,
-      password: regPassword
-    });
-    setLoading(false);
+    try {
+      const result = await userRegister({
+        firstName: regFirstName,
+        lastName: regLastName,
+        email: regEmail,
+        phone: regPhone,
+        password: regPassword
+      });
 
-    if (result.success) {
-      setSuccessMsg(`Account created! Welcome, ${result.customer.firstName}. Redirecting...`);
-      setTimeout(() => {
+      if (result && result.success) {
+        setSuccessMsg(`Account created! Welcome, ${result.customer.firstName}. Redirecting...`);
         navigate('/', { replace: true });
-      }, 900);
-    } else {
-      setError(result.error);
+      } else {
+        setError(result?.error || 'Registration failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Registration submit error:', err);
+      setError(err?.friendlyMessage || err?.message || 'An unexpected error occurred during registration. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   // Submit Admin Login
   const handleAdminLoginSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return; // Prevent duplicate submission
     setError('');
     setSuccessMsg('');
 
@@ -166,16 +176,19 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    const result = await loginAdmin(adminEmail, adminPassword);
-    setLoading(false);
-
-    if (result.success) {
-      setSuccessMsg('Admin authorized! Opening Dashboard...');
-      setTimeout(() => {
+    try {
+      const result = await loginAdmin(adminEmail, adminPassword);
+      if (result && result.success) {
+        setSuccessMsg('Admin authorized! Opening Dashboard...');
         navigate('/admin/dashboard', { replace: true });
-      }, 700);
-    } else {
-      setError(result.error);
+      } else {
+        setError(result?.error || 'Access denied. Invalid admin credentials.');
+      }
+    } catch (err) {
+      console.error('Admin login submit error:', err);
+      setError(err?.friendlyMessage || err?.message || 'An error occurred during admin authentication.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -383,7 +396,13 @@ export default function LoginPage() {
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
                   {loading ? (
-                    <span>Authenticating...</span>
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      <span>Authenticating...</span>
+                    </span>
                   ) : (
                     <>
                       <span>Sign In to Store</span>
@@ -492,7 +511,17 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-3 rounded-xl shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
                 >
-                  {loading ? <span>Creating Account...</span> : <span>Create Account & Log In</span>}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      <span>Creating Account...</span>
+                    </span>
+                  ) : (
+                    <span>Create Account & Log In</span>
+                  )}
                 </button>
               </form>
             )}
@@ -565,7 +594,13 @@ export default function LoginPage() {
                 className="w-full bg-[#1e293b] hover:bg-slate-800 text-white font-bold text-xs py-3 rounded-xl shadow-md transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
                 {loading ? (
-                  <span>Verifying credentials...</span>
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <span>Verifying credentials...</span>
+                  </span>
                 ) : (
                   <>
                     <span>Log In to Admin Dashboard</span>

@@ -43,7 +43,7 @@ export function UserProvider({ children }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load customer profile, addresses, and orders strictly for authenticated customerId
+  // Load customer profile, addresses, and orders strictly for authenticated customerId concurrently
   const loadCustomerData = useCallback(async (cId) => {
     if (!cId) {
       setCustomer(null);
@@ -55,16 +55,28 @@ export function UserProvider({ children }) {
 
     setLoading(true);
     try {
-      // 1. Fetch customer profile
-      const custRes = await api.get(`/customers/${cId}`);
-      if (custRes.data && custRes.data.customerId) {
+      // Execute profile, addresses, and orders in parallel to prevent sequential blocking
+      const [custRes, addrRes, orderRes] = await Promise.all([
+        api.get(`/customers/${cId}`).catch((err) => {
+          console.warn('Could not fetch updated customer profile:', err.message);
+          return null;
+        }),
+        api.get(`/addresses/customer/${cId}`).catch((err) => {
+          console.warn('Could not fetch addresses:', err.message);
+          return { data: [] };
+        }),
+        api.get(`/orders/customer/${cId}`).catch((err) => {
+          console.warn('Could not fetch orders:', err.message);
+          return { data: [] };
+        })
+      ]);
+
+      if (custRes?.data?.customerId) {
         setCustomer(custRes.data);
         localStorage.setItem('sports_store_auth_user', JSON.stringify(custRes.data));
       }
 
-      // 2. Fetch addresses
-      const addrRes = await api.get(`/addresses/customer/${cId}`).catch(() => ({ data: [] }));
-      const addrs = addrRes.data || [];
+      const addrs = addrRes?.data || [];
       setAddresses(addrs);
       if (addrs.length > 0) {
         setSelectedAddress(addrs[0]);
@@ -72,12 +84,10 @@ export function UserProvider({ children }) {
         setSelectedAddress(null);
       }
 
-      // 3. Fetch order history
-      const orderRes = await api.get(`/orders/customer/${cId}`).catch(() => ({ data: [] }));
-      setOrders(orderRes.data || []);
+      const ords = orderRes?.data || [];
+      setOrders(ords);
     } catch (err) {
       console.error('Error loading customer details:', err);
-      // NEVER set any fallback or mock user!
     } finally {
       setLoading(false);
     }
@@ -86,7 +96,7 @@ export function UserProvider({ children }) {
   useEffect(() => {
     if (customerId) {
       localStorage.setItem('sports_store_auth_session_active', 'true');
-      localStorage.setItem('sports_store_auth_user_id', customerId);
+      localStorage.setItem('sports_store_auth_user_id', String(customerId));
       loadCustomerData(customerId);
     } else {
       localStorage.removeItem('sports_store_auth_session_active');
@@ -123,7 +133,12 @@ export function UserProvider({ children }) {
             error: 'No registered user found with this email. Please sign up first.'
           };
         }
-        throw err;
+        const errorMsg =
+          err.friendlyMessage ||
+          err.response?.data?.message ||
+          err.message ||
+          'Unable to reach server. Please try again.';
+        return { success: false, error: errorMsg };
       }
 
       if (!user || !user.customerId) {
@@ -147,20 +162,24 @@ export function UserProvider({ children }) {
         };
       }
 
+      // Establish session
       localStorage.setItem('sports_store_auth_session_active', 'true');
-      localStorage.setItem('sports_store_auth_user_id', user.customerId);
+      localStorage.setItem('sports_store_auth_user_id', String(user.customerId));
       localStorage.setItem('sports_store_auth_user', JSON.stringify(user));
       setCustomerId(user.customerId);
       setCustomer(user);
 
-      await loadCustomerData(user.customerId);
+      // Trigger background sync without blocking the login return
+      loadCustomerData(user.customerId);
+
       return { success: true, customer: user };
     } catch (err) {
       console.error('Login error:', err);
       const errorMsg =
-        err.response?.status === 404
+        err.friendlyMessage ||
+        (err.response?.status === 404
           ? 'No registered user found with this email. Please sign up first.'
-          : err.response?.data?.message || err.message || 'Login failed. Please check your credentials.';
+          : err.response?.data?.message || err.message || 'Login failed. Please check your credentials.');
       return { success: false, error: errorMsg };
     }
   };
@@ -169,8 +188,13 @@ export function UserProvider({ children }) {
   const register = async ({ firstName, lastName, email, phone, password }) => {
     try {
       const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPassword = (password || '').trim();
 
-      // Check if email already exists
+      if (!cleanEmail || !cleanPassword || !firstName) {
+        return { success: false, error: 'Please fill in all required fields.' };
+      }
+
+      // 1. Check if email already exists
       try {
         const checkRes = await api.get(`/customers/email/${encodeURIComponent(cleanEmail)}`);
         if (checkRes.data && checkRes.data.customerId) {
@@ -180,7 +204,13 @@ export function UserProvider({ children }) {
           };
         }
       } catch (checkErr) {
-        // 404 means email is free to register
+        // If 404, it means email is free to register
+        if (checkErr.response && checkErr.response.status !== 404) {
+          const msg = checkErr.friendlyMessage || checkErr.response?.data?.message || checkErr.message;
+          return { success: false, error: msg };
+        } else if (!checkErr.response && checkErr.friendlyMessage) {
+          return { success: false, error: checkErr.friendlyMessage };
+        }
       }
 
       const payload = {
@@ -188,26 +218,35 @@ export function UserProvider({ children }) {
         lastName: (lastName || '').trim(),
         email: cleanEmail,
         phone: (phone || '').trim(),
-        passwordHash: password
+        passwordHash: cleanPassword
       };
 
       const res = await api.post('/customers', payload);
       const newCustomer = res.data;
 
+      if (!newCustomer || !newCustomer.customerId) {
+        return { success: false, error: 'Failed to create account. Please try again.' };
+      }
+
+      // Establish session
       localStorage.setItem('sports_store_auth_session_active', 'true');
-      localStorage.setItem('sports_store_auth_user_id', newCustomer.customerId);
+      localStorage.setItem('sports_store_auth_user_id', String(newCustomer.customerId));
       localStorage.setItem('sports_store_auth_user', JSON.stringify(newCustomer));
       setCustomerId(newCustomer.customerId);
       setCustomer(newCustomer);
 
-      await loadCustomerData(newCustomer.customerId);
+      // Trigger background sync without blocking the registration return
+      loadCustomerData(newCustomer.customerId);
+
       return { success: true, customer: newCustomer };
     } catch (err) {
       console.error('Registration error:', err);
-      return {
-        success: false,
-        error: err.response?.data?.message || err.message || 'Registration failed. Please try again.'
-      };
+      const errorMsg =
+        err.friendlyMessage ||
+        (err.response?.status === 409
+          ? 'An account with this email already exists. Please log in instead.'
+          : err.response?.data?.message || err.message || 'Registration failed. Please try again.');
+      return { success: false, error: errorMsg };
     }
   };
 
